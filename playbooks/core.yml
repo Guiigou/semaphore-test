@@ -7,4 +7,4 @@
   tasks:
     - name: Aplicar config base do Core a partir de ficheiro .rsc
       community.routeros.command:
-        commands: "{{ lookup('file', 'files/core-config.rsc').splitlines() }}"
+        commands: "{{ lookup('file', '../files/core-config.rsc').splitlines() }}"
