@@ -1,4 +1,3 @@
-[admin@MikroTik] /ip/route> /export
 # 2025-11-28 12:06:57 by RouterOS 7.16
 # software id = 
 #
