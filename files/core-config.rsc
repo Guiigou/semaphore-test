@@ -1,6 +1,3 @@
-# 2025-11-28 12:06:03 by RouterOS 7.16
-# software id = 
-#
 /interface bridge
 add name=bridge-mgmt
 /interface ethernet
