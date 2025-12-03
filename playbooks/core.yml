@@ -2,7 +2,6 @@
 - name: Configurar Core MikroTik
   hosts: core
   gather_facts: no
-  connection: network_cli
 
   tasks:
     - name: Aplicar config base do Core a partir de ficheiro .rsc
