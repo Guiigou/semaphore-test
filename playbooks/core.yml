@@ -1,9 +1,91 @@
 ---
-- name: Configurar Core MikroTik
+- name: Configurar Core MikroTik (Bisect)
   hosts: core
   gather_facts: no
+  connection: network_cli
+  vars:
+    ansible_network_os: community.routeros.routeros
 
   tasks:
-    - name: Aplicar config base do Core a partir de ficheiro .rsc
+    - name: Criar bridge de gestão
       community.routeros.command:
-        commands: "{{ lookup('file', '../files/core-config.rsc').splitlines() }}"
+        commands:
+          - /interface bridge add name=bridge-mgmt
+
+    - name: Ativar ethernet interfaces
+      community.routeros.command:
+        commands:
+          - /interface ethernet set [ find default-name=ether1 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether2 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether3 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether4 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether5 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether6 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether7 ] disable-running-check=no
+          - /interface ethernet set [ find default-name=ether8 ] disable-running-check=no
+
+    - name: Criar VLANs
+      community.routeros.command:
+        commands:
+          - /interface vlan add interface=ether2 name=vlan60 vlan-id=60
+          - /interface vlan add interface=ether2 name=vlan70 vlan-id=70
+          - /interface vlan add interface=ether4 name=vlan99-capetown vlan-id=99
+          - /interface vlan add interface=ether3 name=vlan99-mombasa vlan-id=99
+          - /interface vlan add interface=ether2 name=vlan99-rabat vlan-id=99
+
+    - name: Criar Pools DHCP
+      community.routeros.command:
+        commands:
+          - /ip pool add name=pool60 ranges=10.10.60.10-10.10.60.254
+          - /ip pool add name=pool70 ranges=10.10.70.10-10.10.70.254
+
+    - name: Definir nome da porta serial
+      community.routeros.command:
+        commands:
+          - /port set 0 name=serial0
+
+    - name: Associar VLANs à bridge mgmt
+      community.routeros.command:
+        commands:
+          - /interface bridge port add bridge=bridge-mgmt interface=vlan99-rabat
+          - /interface bridge port add bridge=bridge-mgmt interface=vlan99-mombasa
+          - /interface bridge port add bridge=bridge-mgmt interface=vlan99-capetown
+
+    - name: Configurar endereços IP
+      community.routeros.command:
+        commands:
+          - /ip address add address=10.10.99.1/24 interface=bridge-mgmt
+          - /ip address add address=192.168.122.2/24 interface=ether1
+          - /ip address add address=10.10.60.1/24 interface=vlan60
+          - /ip address add address=10.10.70.1/24 interface=vlan70
+          - /ip address add address=10.10.80.1/30 interface=ether3
+          - /ip address add address=10.10.80.5/30 interface=ether4
+
+    - name: Criar servidores DHCP
+      community.routeros.command:
+        commands:
+          - /ip dhcp-server add address-pool=pool60 interface=vlan60 name=dhcp60 lease-time=8h
+          - /ip dhcp-server add address-pool=pool70 interface=vlan70 name=dhcp70 lease-time=8h
+
+    - name: Configurar redes DHCP
+      community.routeros.command:
+        commands:
+          - /ip dhcp-server network add address=10.10.60.0/24 dns-server=8.8.8.8 gateway=10.10.60.1
+          - /ip dhcp-server network add address=10.10.70.0/24 dns-server=8.8.8.8 gateway=10.10.70.1
+
+    - name: Regras de firewall básicas
+      community.routeros.command:
+        commands:
+          - /ip firewall filter add chain=forward action=accept connection-state=established,related
+
+    - name: Configurar NAT de saída
+      community.routeros.command:
+        commands:
+          - /ip firewall nat add chain=srcnat action=masquerade out-interface=ether1
+
+    - name: Adicionar rotas estáticas
+      community.routeros.command:
+        commands:
+          - /ip route add dst-address=0.0.0.0/0 gateway=192.168.122.1 comment="Default -> ISP"
+          - /ip route add dst-address=10.10.30.0/24 gateway=10.10.80.2 comment="Mombasa VLAN30"
+          - /ip route add dst-address=10.10.40.0/24 gateway=10.10.80.2 comment="Mombasa VLAN40"
